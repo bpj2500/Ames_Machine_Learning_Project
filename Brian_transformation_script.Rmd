@@ -1,0 +1,181 @@
+---
+title: "Cleaning_Script"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+##Loading Libraries 
+
+```{r}
+setwd('C:/Users/bpj25/OneDrive/Documents/R')
+library(readr)
+library(dplyr) 
+library(ggplot2)
+ 
+
+
+```
+
+## Loading the Dataset 
+
+You can also embed plots, for example:
+
+```{r}
+houseprice <- read_csv("Ames_HousePrice.csv")
+df <- houseprice[, 1:41]
+
+```
+
+## Dealing with Missing Values 
+
+```{r}
+df <- df%>% 
+  mutate(Alley = ifelse(is.na(Alley) == TRUE, "no_alley", Alley), 
+         MasVnrType = ifelse(is.na(MasVnrType) == TRUE, "None", MasVnrType), 
+         BsmtQual = ifelse(is.na(BsmtQual) == TRUE, "None", BsmtQual), 
+         BsmtCond = ifelse(is.na(BsmtCond) == TRUE, "None", BsmtCond), 
+         BsmtExposure = ifelse(is.na(BsmtExposure) == TRUE, "None", BsmtExposure), 
+         BsmtFinType1 = ifelse(is.na(BsmtFinType1) == TRUE, "None", BsmtFinType1), 
+         BsmtFinType2 = ifelse(is.na(BsmtFinType2) == TRUE, "None", BsmtFinType2), 
+         LotFrontage = ifelse(is.na(LotFrontage) == TRUE, 0, LotFrontage), 
+         MasVnrArea = ifelse(is.na(MasVnrArea) == TRUE, 0, MasVnrArea), 
+         BsmtFinSF1 = ifelse(is.na(BsmtFinSF1) == TRUE, 0, BsmtFinSF1), 
+         BsmtFinSF2 = ifelse(is.na(BsmtFinSF2) == TRUE, 0, BsmtFinSF2), 
+         BsmtUnfSF = ifelse(is.na(BsmtUnfSF) == TRUE, 0, BsmtUnfSF)
+         )
+    
+sum(is.na(df))
+```
+#Making the Has Housing Features 
+
+```{r}
+df <- df %>% 
+  mutate(has_basement = ifelse(BsmtQual == "None", 0, 1), 
+         has_mason = ifelse(MasVnrType == "None", 0, 1), 
+         has_alley = ifelse(Alley == 'no_alley', 0, 1), 
+         was_remodeled = ifelse(YearRemodAdd - YearBuilt == 0, 0, 1), 
+         stand_scores = abs(SalePrice - mean(SalePrice))/sd(SalePrice)
+         )
+Groups <- df %>% 
+  group_by(Neighborhood) %>% 
+  summarize(med_price = median(SalePrice), 
+            cnt = n()) %>% 
+  arrange(med_price) %>% 
+  mutate(cum_cnt = cumsum(cnt), 
+         neigh_group = ntile(cum_cnt, 6))
+
+
+df$has_basement <- factor(df$has_basement) 
+df$has_mason <- factor(df$has_mason) 
+df$has_alley <- factor(df$has_alley) 
+df$was_remodeled <- factor(df$was_remodeled)
+df$MSSubClass <- factor(df$MSSubClass)
+```
+#Grouping the Neighborhoods by Median Price 
+```{r}
+df <- df %>% 
+  left_join(dplyr::select(Groups, Neighborhood, neigh_group), by = 'Neighborhood') 
+
+df$neigh_group <- factor(df$neigh_group)
+```
+#Converting Variables to Ordinal Factors 
+
+```{r} 
+ranks <- c("None", "Po", "Fa", "TA", "Gd", "Ex")
+df$BsmtQual <- factor(as.numeric(factor(df$BsmtQual, ranks))) 
+df$BsmtCond <- factor(as.numeric(factor(df$BsmtCond, ranks))) 
+
+ranks_ex <- c('None', 'No', 'Mn', 'Av', 'Gd')
+df$BsmtExposure <- factor(as.numeric(factor(df$BsmtExposure, ranks_ex)))
+
+ranks_exterior <- c('Po', 'Fa', 'TA', 'Gd', 'Ex')
+df$ExterQual <- factor(as.numeric(factor(df$ExterQual, ranks_exterior)))
+df$ExterCond <- factor(as.numeric(factor(df$ExterCond, ranks_exterior))) 
+
+#making orders
+ranks_mason <- c('None','BrkCmn', 'BrkFace', 'CBlock', 'Stone') 
+df$MasVnrType <- factor(df$MasVnrType, ranks_mason)  
+
+ranks_housestyle <- c('1Story', '1.5Unf', '1.5Fin', '2Story', '2.5Unf', '2.5Fin', 'SFoyer', 'SLvl')  
+df$HouseStyle <- factor(df$HouseStyle, ranks_housestyle) 
+
+ranks_bsmttype <- c('None', 'Unf', 'LwQ', 'Rec', 'BLQ', 'ALQ', 'GLQ')
+df$BsmtFinType1 <- factor(df$BsmtFinType1, ranks_bsmttype) 
+df$BsmtFinType2 <- factor(df$BsmtFinType2, ranks_bsmttype)
+
+```
+
+#Making the Dummy Variables 
+
+```{r} 
+
+df$MSZoning <- model.matrix(~MSZoning -1, data = df)
+df$Street <- model.matrix(~Street -1, data = df)
+df$Alley <- model.matrix(~Alley -1, data = df) 
+df$LotShape <- model.matrix(~LotShape -1, data = df) 
+df$LandContour <- model.matrix(~LandContour -1, data = df) 
+df$Utilities <- model.matrix(~Utilities -1, data = df) 
+df$LotConfig <- model.matrix(~LotConfig -1, data = df) 
+df$LandSlope <- model.matrix(~LandSlope -1, data = df) 
+df$Condition1 <- model.matrix(~Condition1 -1, data = df) 
+df$Condition2 <- model.matrix(~Condition2 -1, data = df) 
+df$BldgType <- model.matrix(~BldgType -1, data = df) 
+df$RoofStyle <- model.matrix(~RoofStyle -1, data = df) 
+df$RoofMatl <- model.matrix(~RoofMatl -1, data = df) 
+df$Exterior1st <- model.matrix(~Exterior1st -1, data = df) 
+df$Exterior2nd <- model.matrix(~Exterior2nd -1, data = df) 
+df$MasVnrType <- model.matrix(~MasVnrType -1, data = df) 
+df$Foundation <- model.matrix(~Foundation -1, data = df) 
+df$HouseStyle <- model.matrix(~HouseStyle -1, data = df) 
+df$BsmtFinType1 <- model.matrix(~BsmtFinType1 -1, data = df)
+df$BsmtFinType2 <- model.matrix(~BsmtFinType2 -1, data = df)
+```
+
+#removing outliers  
+```{r} 
+df1 <- df %>% 
+  filter(stand_scores < 3 & LotArea < 25000)
+
+df2 <- df1 %>% 
+  dplyr::select(-PID, -X1, -GrLivArea, -Neighborhood, - stand_scores)
+
+
+
+```
+#scaling the area and square footage 
+```{r}
+df3 <- df2 %>% 
+  mutate(LotFrontage = ifelse(LotFrontage != 0, log(LotFrontage), LotFrontage), 
+         MasVnrArea = ifelse(MasVnrArea != 0, log(MasVnrArea), MasVnrArea), 
+         BsmtFinSF1 = ifelse(BsmtFinSF1 != 0, log(BsmtFinSF1), BsmtFinSF1), 
+         BsmtFinSF2 = ifelse(BsmtFinSF2 != 0, log(BsmtFinSF2), BsmtFinSF2), 
+         BsmtUnfSF = ifelse(BsmtUnfSF != 0, log(BsmtUnfSF), BsmtUnfSF))
+
+
+```
+#checking if works in a linear model 
+```{r} 
+ 
+
+df_null <- lm(SalePrice ~ MSSubClass, data=df3)
+
+df_full <- lm(log(SalePrice) ~ MSSubClass + MSZoning + LotFrontage + LotArea + Street + 
+    Alley + LotShape + LandContour + Utilities + LotConfig + 
+    LandSlope + Condition1 + Condition2 + BldgType + HouseStyle + 
+    OverallQual + OverallCond + RoofStyle + 
+    RoofMatl + Exterior1st + Exterior2nd + MasVnrType + MasVnrArea + 
+    ExterQual + ExterCond + Foundation + BsmtQual + BsmtCond + 
+    BsmtExposure + BsmtFinType1 + BsmtFinSF1 + BsmtFinType2 + 
+    BsmtFinSF2 + BsmtUnfSF + has_basement + has_mason + has_alley + 
+    was_remodeled + neigh_group, data = df3)
+
+step_BIC3 <- step(df_full, k = log(2500)) 
+
+step_BIC4 <- step(df_null, scope = list(lower = df_null, upper = df_full), direction = 'both', k = log(2500))
+
+summary(step_BIC3)
+```
