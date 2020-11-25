@@ -16,8 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(dplyr) 
 library(ggplot2)
-
-install.packages('trainControl')
+library(caret)
 ```
 
 ## Loading the Dataset 
@@ -67,22 +66,35 @@ df$GarageYrBlt <- ifelse(is.na(df$GarageYrBlt), df$YearBuilt, df$GarageYrBlt)
 
 sum(is.na(df))
 colSums(is.na(df))
-
-```
-```{r}
-#playing
-
-
 ```
 
-
-#Standardizing SalePrice
+#Making the additional Housing Features 
 
 ```{r}
 df <- df %>% 
-  mutate(stand_scores = abs(SalePrice - mean(SalePrice))/sd(SalePrice)
+  mutate(was_remodeled = ifelse(YearRemodAdd - YearBuilt == 0, 0, 1), 
+         stand_scores = abs(SalePrice - mean(SalePrice))/sd(SalePrice), 
+         non_lvingArea = LotArea - GrLivArea  
          )
+
+df$was_remodeled <- factor(df$was_remodeled)
+
+Groups <- df %>% 
+  group_by(Neighborhood) %>% 
+  summarize(med_price = median(SalePrice), 
+            cnt = n()) %>% 
+  arrange(med_price) %>% 
+  mutate(cum_cnt = cumsum(cnt), 
+         neigh_group = ntile(cum_cnt, 5))
+
+df <- df %>% 
+  left_join(dplyr::select(Groups, Neighborhood, neigh_group), by = 'Neighborhood') 
+df$neigh_group <- factor(df$neigh_group)
+
+
+
 ```
+
 #Converting Variables to Ordinal Factors 
 
 ```{r} 
@@ -142,76 +154,66 @@ df$SaleCondition <- factor(df$SaleCondition, ranks_salecondition)
 
 ```
 
-#Making the Dummy Variables 
+#Making factored dummy variables for all other categorical variables
 
-```{r} 
+```{r}
 
-df$MSZoning <- model.matrix(~MSZoning -1, data = df)
-df$Street <- model.matrix(~Street -1, data = df)
-df$Alley <- model.matrix(~Alley -1, data = df) 
-df$LotShape <- model.matrix(~LotShape -1, data = df) 
-df$LandContour <- model.matrix(~LandContour -1, data = df) 
-df$Utilities <- model.matrix(~Utilities -1, data = df) 
-df$LotConfig <- model.matrix(~LotConfig -1, data = df) 
-df$LandSlope <- model.matrix(~LandSlope -1, data = df) 
-df$Condition1 <- model.matrix(~Condition1 -1, data = df) 
-df$Condition2 <- model.matrix(~Condition2 -1, data = df) 
-df$BldgType <- model.matrix(~BldgType -1, data = df) 
-df$RoofStyle <- model.matrix(~RoofStyle -1, data = df) 
-df$RoofMatl <- model.matrix(~RoofMatl -1, data = df) 
-df$Exterior1st <- model.matrix(~Exterior1st -1, data = df) 
-df$Exterior2nd <- model.matrix(~Exterior2nd -1, data = df) 
-df$MasVnrType <- model.matrix(~MasVnrType -1, data = df) 
-df$Foundation <- model.matrix(~Foundation -1, data = df) 
-df$HouseStyle <- model.matrix(~HouseStyle -1, data = df) 
-df$BsmtFinType1 <- model.matrix(~BsmtFinType1 -1, data = df)
-df$BsmtFinType2 <- model.matrix(~BsmtFinType2 -1, data = df)
-df$Heating <- model.matrix(~Heating -1, data = df)
-df$HeatingQC <- model.matrix(~HeatingQC -1, data = df)
-df$Electrical <- model.matrix(~Electrical -1, data = df) 
-df$KitchenQual <- model.matrix(~KitchenQual -1, data = df) 
-df$Functional <- model.matrix(~Functional -1, data = df) 
-df$FireplaceQu <- model.matrix(~FireplaceQu -1, data = df) 
-df$GarageType <- model.matrix(~GarageType -1, data = df) 
-df$GarageFinish <- model.matrix(~GarageFinish -1, data = df) 
-df$GarageQual <- model.matrix(~GarageQual -1, data = df) 
-df$GarageCond <- model.matrix(~GarageCond -1, data = df) 
-df$PavedDrive <- model.matrix(~PavedDrive -1, data = df) 
-df$PoolQC <- model.matrix(~PoolQC -1, data = df) 
-df$Fence <- model.matrix(~Fence -1, data = df) 
-df$MiscFeature <- model.matrix(~MiscFeature -1, data = df) 
-df$SaleType <- model.matrix(~SaleType -1, data = df) 
-df$SaleCondition <- model.matrix(~SaleCondition -1, data = df) 
-df$CentralAir <- model.matrix(~CentralAir -1, data = df) 
-df$Neighborhood <- model.matrix(~Neighborhood -1, data = df)
-
+df$MSZoning <- factor(df$MSZoning)
+df$Street <- factor(df$Street)
+df$Alley <- factor(df$Alley) 
+df$LotShape <- factor(df$LotShape) 
+df$LandContour <- factor(df$LandContour) 
+df$Utilities <- factor(df$Utilities) 
+df$LotConfig <- factor(df$LotConfig) 
+df$LandSlope <- factor(df$LandSlope) 
+df$Condition1 <- factor(df$Condition1) 
+df$Condition2 <- factor(df$Condition2) 
+df$BldgType <- factor(df$BldgType) 
+df$RoofStyle <- factor(df$RoofStyle) 
+df$RoofMatl <- factor(df$RoofMatl) 
+df$Exterior1st <- factor(df$Exterior1st) 
+df$Exterior2nd <- factor(df$Exterior2nd) 
+df$MasVnrType <- factor(df$MasVnrType) 
+df$Foundation <- factor(df$Foundation) 
+df$HouseStyle <- factor(df$HouseStyle)  
+df$Neighborhood <- factor(df$Neighborhood) 
+df$Heating <- factor(df$Heating)
+df$Electrical <- factor(df$Electrical) 
+df$GarageType <- factor(df$GarageType) 
+df$PavedDrive <- factor(df$PavedDrive) 
+df$MiscFeature <- factor(df$MiscFeature) 
+df$SaleType <- factor(df$SaleType) 
+df$SaleCondition <- factor(df$SaleCondition) 
+df$CentralAir <- factor(df$CentralAir) 
 ```
 
-#removing outliers  
+#removing outliers
+
 ```{r} 
 df1 <- df %>% 
   filter(stand_scores < 3 & LotArea < 25000)
 
+names(df1)[names(df1) == "1stFlrSF"] <- "X1stFlrSF"
+names(df1)[names(df1) == "2ndFlrSF"] <- "X2ndFlrSF"
+names(df1)[names(df1) == "3SsnPorch"] <- "X3SsnPorch"
+
 df2 <- df1 %>% 
-  dplyr::select(-PID, -X1, -GrLivArea, -stand_scores, -GarageCars, -BedroomAbvGr, -KitchenAbvGr, -MSSubClass, -MSZoning, -LotFrontage, -LotShape, -LandContour, -BldgType, -OverallQual, -OverallCond, -Heating, -TotRmsAbvGrd, -SaleType, -SaleCondition, -LotConfig)
+  dplyr::select(-PID, -X1, -GrLivArea, -stand_scores, -SaleType, -SaleCondition, -MoSold, -YrSold, 
+                -GarageCars, -GarageYrBlt, -TotRmsAbvGrd, -TotalBsmtSF, -YearBuilt, -YearRemodAdd,  
+                -OverallCond, -OverallQual, -Condition1, -Condition2, -LotFrontage, -LotArea)
 
 
 
 ```
-#scaling the area and square footage 
+#scaling the area and square footage
 ```{r}
 
-#renaming cols with numbers so that dplyr will work
-names(df2)[names(df2) == "1stFlrSF"] <- "X1stFlrSF"
-names(df2)[names(df2) == "2ndFlrSF"] <- "X2ndFlrSF"
-names(df2)[names(df2) == "3SsnPorch"] <- "X3SsnPorch"
-
 df3 <- df2 %>% 
-  mutate(MasVnrArea = log(MasVnrArea + 1), 
+  mutate(SalePrice = log(SalePrice + 1),
+         MasVnrArea = log(MasVnrArea + 1), 
          BsmtFinSF1 = log(BsmtFinSF1 + 1), 
          BsmtFinSF2 = log(BsmtFinSF2 + 1), 
          BsmtUnfSF = log(BsmtUnfSF + 1),
-         LotArea = log(LotArea + 1),
          X1stFlrSF = log(X1stFlrSF + 1), 
          X2ndFlrSF = log(X2ndFlrSF + 1), 
          GarageArea = log(GarageArea + 1),
@@ -220,49 +222,95 @@ df3 <- df2 %>%
          EnclosedPorch = log(EnclosedPorch + 1),
          X3SsnPorch = log(X3SsnPorch + 1),
          ScreenPorch = log(ScreenPorch + 1),
-         PoolArea = log(PoolArea + 1))
-
+         PoolArea = log(PoolArea + 1),
+         non_lvingArea = log(non_lvingArea + 1)
+         )
+#for some reason, an na value was produced for the following entry after scaling
+df3$non_lvingArea = df3$non_lvingArea[286] = log(7844 + 1)
 
 ```
-#checking if works in a linear model 
+
+#variable selection
+
 ```{r} 
-df_null <- lm(log(SalePrice) ~ LotArea, data = df3)
-
-df_full <- lm(log(SalePrice) ~ LotArea + Street +
-    Alley + Utilities + Condition1 + Condition2 + HouseStyle + RoofStyle +
-    RoofMatl + Exterior1st + Exterior2nd + MasVnrType + MasVnrArea +
-    ExterQual + ExterCond + Foundation + BsmtQual + BsmtCond +
-    BsmtExposure + BsmtFinType1 + BsmtFinSF1 + BsmtFinType2 +
-    BsmtFinSF2 + BsmtUnfSF + Neighborhood + HeatingQC + CentralAir + Electrical + X1stFlrSF +
-    X2ndFlrSF + LowQualFinSF + BsmtFullBath + FullBath + HalfBath +
-    KitchenQual + Functional + Fireplaces + FireplaceQu +
-    GarageType + GarageYrBlt + GarageFinish +
-    GarageArea + GarageQual + GarageCond + PavedDrive + WoodDeckSF +
-    OpenPorchSF + EnclosedPorch + X3SsnPorch + ScreenPorch + PoolArea +
-    Fence + MiscFeature + MiscVal + MoSold +
-    YrSold, data = df3)
-
-step_BIC3 <- step(df_full, k = log(2500))
-
-step_BIC4 <- step(df_null, scope = list(lower = df_null, upper = df_full), direction = 'both', k = log(2500))
-
-summary(step_BIC3)
-```
-
-
-```{r}
 set.seed(1212)
 
 index = sample(1:nrow(df3), size = nrow(df3)*0.8)
 
 train_data = df3[index, ]
 test_data = df3[-index, ]
-tune.grid = expand.grid(lambda = (0:10)*0.1, alpha=0)
-ctrl = trainControl(method = "repeatedcv", number = 5, repeats = 5)
-logit_shrinkage = train(default ~ ., data=train_data,
- method = "glmnet", metric = "Accuracy",
- preProc=c('center', 'scale'),
- trControl = ctrl, tuneGrid = tune.grid)
+
+
+mdl_null <- lm(SalePrice ~ X1stFlrSF, data = df3)
+
+mdl_full <- lm(SalePrice ~ BldgType + HouseStyle + RoofStyle + 
+                   MasVnrType + MasVnrArea + ExterQual + ExterCond + 
+                   BsmtQual + BsmtCond + BsmtFinType1 + 
+                   BsmtFinSF1 + BsmtUnfSF  + 
+                   X1stFlrSF + X2ndFlrSF + 
+                   BsmtFullBath + BsmtHalfBath + FullBath + HalfBath + 
+                   BedroomAbvGr + KitchenQual  + 
+                   GarageType + GarageFinish + GarageArea + 
+                   GarageQual + GarageCond + WoodDeckSF + OpenPorchSF + 
+                   EnclosedPorch + X3SsnPorch + ScreenPorch + PoolArea + PoolQC + 
+                   Fence + MiscFeature + MiscVal + was_remodeled + non_lvingArea, data = df3)
+
+step_BIC1 <- step(mdl_full, k = log(2500)) 
+
+step_BIC2 <- step(mdl_null, scope = list(lower = mdl_null, upper = mdl_full), direction = 'both', k = log(2500))
+summary(step_BIC2)
+
+mdl_bic_round_2 <- lm(SalePrice ~ BldgType + 
+                   ExterQual + ExterCond + 
+                   BsmtQual + BsmtFinType1 + 
+                   BsmtFinSF1  + 
+                   X1stFlrSF + X2ndFlrSF + 
+                   FullBath + HalfBath + 
+                   KitchenQual  + 
+                   GarageFinish + GarageArea + 
+                   GarageCond + WoodDeckSF + Neighborhood +
+                   was_remodeled, data = df3)
+
+step_BIC3 <- step(mdl_bic_round_2, k = log(2500)) 
+
+step_BIC4 <- step(mdl_null, scope = list(lower = mdl_null, upper = mdl_bic_round_2), direction = 'both', k = log(2500))
+summary(step_BIC4)
+
+mdl_bic_round_3 <- lm(SalePrice ~ BldgType + 
+                   ExterQual + ExterCond + 
+                   BsmtQual + 
+                   BsmtFinSF1  + 
+                   X1stFlrSF + X2ndFlrSF + 
+                   KitchenQual  + HeatingQC +
+                   GarageQual + Fireplace, data = df3)
+
+step_BIC5 <- step(mdl_bic_round_3, k = log(2500)) 
+
+step_BIC6 <- step(mdl_null, scope = list(lower = mdl_null, upper = mdl_bic_round_3), direction = 'both', k = log(2500))
+summary(step_BIC6)
+
+mdl_test <- lm(SalePrice ~ BsmtQual + X1stFlrSF + X2ndFlrSF +
+                       ExterQual + ExterCond + GarageQual + KitchenQual + 
+                       BsmtQual + HeatingQC + Fireplaces + neigh_group, data = df3)
+
+Testing <- step(mdl_null, scope = list(lower = mdl_null, upper = mdl_test), direction = 'both', k = log(2500)) 
+summary(Testing)
+```
+#Cross Validation
+
+```{r}
+
+
+
+ctrl = trainControl(method = "cv", number = 10)
+
+lm_modelcv <- train(SalePrice ~ BsmtQual + X1stFlrSF + X2ndFlrSF +
+                       ExterQual + ExterCond + GarageQual + KitchenQual + 
+                       BsmtQual + HeatingQC + Fireplaces + neigh_group, data=train_data, method = "lm", trControl = ctrl)
+```
+```{r}
+lm_modelcv
+```
 
 
 ```
