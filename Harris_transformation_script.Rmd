@@ -1,0 +1,196 @@
+---
+title: "Cleaning_Script"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+##Loading Libraries 
+
+```{r}
+setwd("~/NYCDSA/2 Data Science Boot Camp/Projects/Machine Learning")
+
+library(readr)
+library(dplyr) 
+library(ggplot2)
+
+library(PerformanceAnalytics)
+
+```
+
+## Loading the Dataset 
+
+```{r}
+houseprice <- read_csv("Ames_HousePrice.csv")
+
+drop1 = c("X1","PID","GrLivArea","MSSubClass","MSZoning","LotFrontage","LotArea","Street","Alley","LotShape","LandContour","Utilities","LotConfig","LandSlope","Neighborhood","Condition1","Condition2","BldgType","HouseStyle","OverallQual","OverallCond","YearBuilt","YearRemodAdd","RoofStyle","RoofMatl","Exterior1st","Exterior2nd","MasVnrType","MasVnrArea","ExterQual","ExterCond","Foundation","BsmtQual","BsmtCond","BsmtExposure","BsmtFinType1","BsmtFinSF1","BsmtFinType2","BsmtFinSF2","BsmtUnfSF","TotalBsmtSF")
+
+#imputing garage year built NA's to be the same as year built
+houseprice$GarageYrBlt <- ifelse(is.na(houseprice$GarageYrBlt), houseprice$YearBuilt, houseprice$GarageYrBlt)
+
+df = houseprice[,!(names(houseprice) %in% drop1)]
+
+which(is.na(df$GarageCars))
+
+df[300, ]
+
+#how to create a vector of column names
+cat(paste(shQuote(colnames(df)),collapse = ', '))
+
+length(colnames(houseprice))
+
+chart.Correlation(houseprice[1:20],histogram=TRUE, pch=19)
+
+chart.Correlation(houseprice[21:41],histogram=TRUE, pch=19)
+
+chart.Correlation(houseprice[42:61],histogram=TRUE, pch=19)
+
+chart.Correlation(houseprice[42:82],histogram=TRUE, pch=19)
+
+
+
+houseprice[42:82]
+
+colnames(df)
+```
+
+## Dealing with Missing Values 
+
+```{r}
+df <- df%>% 
+  mutate(Electrical = ifelse(is.na(Electrical) == TRUE, "SBrkr", Electrical),
+         GarageArea = ifelse(is.na(GarageArea) == TRUE, 0, GarageArea),
+         BsmtFullBath = ifelse(is.na(BsmtFullBath) == TRUE, 0, BsmtFullBath), 
+         BsmtHalfBath = ifelse(is.na(BsmtHalfBath) == TRUE, 0, BsmtHalfBath), 
+         FireplaceQu = ifelse(is.na(FireplaceQu) == TRUE, "no_fireplace", FireplaceQu), 
+         GarageType = ifelse(is.na(GarageType) == TRUE, "no_garage", GarageType), 
+         GarageFinish = ifelse(is.na(GarageFinish) == TRUE, "no_garage", GarageFinish), 
+         GarageQual = ifelse(is.na(GarageQual) == TRUE, "no_garage", GarageQual), 
+         GarageCond = ifelse(is.na(GarageCond) == TRUE, "no_garage", GarageCond), 
+         PoolQC = ifelse(is.na(PoolQC) == TRUE, "no_pool", PoolQC), 
+         Fence = ifelse(is.na(Fence) == TRUE, "no_fence", Fence), 
+         MiscFeature = ifelse(is.na(MiscFeature) == TRUE, "no_misc", MiscFeature) 
+         )
+    
+sum(is.na(df))
+colSums(is.na(df))
+```
+#Converting Variables to Ordinal Factors 
+
+```{r} 
+ranks_garage <- c("no_garage", "Po", "Fa", "TA", "Gd", "Ex")
+df$GarageQual <- factor(as.numeric(factor(df$GarageQual, ranks_garage))) 
+df$GarageCond <- factor(as.numeric(factor(df$GarageCond, ranks_garage))) 
+
+ranks_pool <- c("no_pool", "Fa", "TA", "Gd", "Ex")
+df$PoolQC <- factor(as.numeric(factor(df$PoolQC, ranks_pool))) 
+
+ranks_3 <- c('Po', 'Fa', 'TA', 'Gd', 'Ex')
+df$HeatingQC <- factor(as.numeric(factor(df$HeatingQC, ranks_3)))
+df$KitchenQual <- factor(as.numeric(factor(df$KitchenQual, ranks_3))) 
+
+#making orders
+
+ranks_fence <- c("no_fence", "MnWw", "GdWo", "MnPrv", "GdPrv")
+df$Fence <- factor(df$Fence, ranks_fence) 
+
+ranks_fireplace <- c("no_fireplace", "Po", "Fa", "TA", "Gd", "Ex")
+df$FireplaceQu <- factor(df$FireplaceQu, ranks_fireplace)
+
+ranks_functional <- c("Sal", "Sev", "Maj2", "Maj1", "Mod", "Min2", "Min1", "Typ")
+df$Functional <- factor(df$Functional, ranks_functional)
+
+ranks_garagefinish <- c("no_garage", "Unf", "RFn", "Fin")
+df$GarageFinish <- factor(df$GarageFinish, ranks_garagefinish)
+
+ranks_drive <- c("N", "P", "Y")
+df$PavedDrive <- factor(df$PavedDrive, ranks_drive)
+
+ranks_saletype <- c("Oth", "ConLD", "ConLI", "ConLw", "Con", "COD", "New", "VWD", "CWD", "WD")
+df$SaleType <- factor(df$SaleType, ranks_saletype)
+
+ranks_salecondition <- c("Partial", "Family", "Alloca", "AdjLand", "Abnorml", "Normal")
+df$SaleCondition <- factor(df$SaleCondition, ranks_salecondition)
+
+df
+```
+
+#Making the Dummy Variables 
+
+```{r} 
+
+df$Heating <- model.matrix(~Heating -1, data = df)
+df$HeatingQC <- model.matrix(~HeatingQC -1, data = df)
+df$Electrical <- model.matrix(~Electrical -1, data = df) 
+df$KitchenQual <- model.matrix(~KitchenQual -1, data = df) 
+df$Functional <- model.matrix(~Functional -1, data = df) 
+df$FireplaceQu <- model.matrix(~FireplaceQu -1, data = df) 
+df$GarageType <- model.matrix(~GarageType -1, data = df) 
+df$GarageFinish <- model.matrix(~GarageFinish -1, data = df) 
+df$GarageQual <- model.matrix(~GarageQual -1, data = df) 
+df$GarageCond <- model.matrix(~GarageCond -1, data = df) 
+df$PavedDrive <- model.matrix(~PavedDrive -1, data = df) 
+df$PoolQC <- model.matrix(~PoolQC -1, data = df) 
+df$Fence <- model.matrix(~Fence -1, data = df) 
+df$MiscFeature <- model.matrix(~MiscFeature -1, data = df) 
+df$SaleType <- model.matrix(~SaleType -1, data = df) 
+df$SaleCondition <- model.matrix(~SaleCondition -1, data = df) 
+df$CentralAir <- model.matrix(~CentralAir -1, data = df) 
+
+```
+
+
+#removing outliers  
+```{r} 
+
+df1 <- df %>%
+  dplyr::select(-GarageCars, -BedroomAbvGr, -KitchenAbvGr)
+
+
+
+```
+#scaling the area and square footage 
+```{r}
+
+#renaming cols with numbers so that dplyr will work
+names(df1)[names(df1) == "1stFlrSF"] <- "X1stFlrSF"
+names(df1)[names(df1) == "2ndFlrSF"] <- "X2ndFlrSF"
+names(df1)[names(df1) == "3SsnPorch"] <- "X3SsnPorch"
+
+# df2 <- df1 %>% 
+#   mutate(X1stFlrSF = ifelse(X1stFlrSF != 0, log(X1stFlrSF), X1stFlrSF), 
+#          X2ndFlrSF = ifelse(X2ndFlrSF != 0, log(X2ndFlrSF), X2ndFlrSF), 
+#          GarageArea = ifelse(GarageArea != 0, log(GarageArea), GarageArea),
+#          WoodDeckSF = ifelse(WoodDeckSF != 0, log(WoodDeckSF), WoodDeckSF),
+#          OpenPorchSF = ifelse(OpenPorchSF != 0, log(OpenPorchSF), OpenPorchSF),
+#          EnclosedPorch = ifelse(EnclosedPorch != 0, log(EnclosedPorch), EnclosedPorch),
+#          X3SsnPorch = ifelse(X3SsnPorch != 0, log(X3SsnPorch), X3SsnPorch),
+#          ScreenPorch = ifelse(ScreenPorch != 0, log(ScreenPorch), ScreenPorch),
+#          PoolArea = ifelse(PoolArea != 0, log(PoolArea), PoolArea))
+
+(df$YrSold)
+```
+#checking if works in a linear model 
+```{r} 
+colnames(df2) 
+
+df_null <- lm(SalePrice ~ Heating, data=df2)
+
+df_full <- lm(log(SalePrice) ~ Heating + HeatingQC + CentralAir + Electrical + X1stFlrSF + 
+    X2ndFlrSF + LowQualFinSF + BsmtFullBath + FullBath + HalfBath + 
+    KitchenQual + TotRmsAbvGrd + Functional + Fireplaces + FireplaceQu + 
+    GarageType + GarageYrBlt + GarageFinish + 
+    GarageArea + GarageQual + GarageCond + PavedDrive + WoodDeckSF + 
+    OpenPorchSF + EnclosedPorch + X3SsnPorch + ScreenPorch + PoolArea + 
+    Fence + MiscFeature + MiscVal + MoSold + 
+    YrSold + SaleType + SaleCondition, data = df2)
+
+#step_BIC3 <- step(df_full, k = log(2500)) 
+
+#step_BIC4 <- step(df_null, scope = list(lower = df_null, upper = df_full), direction = 'backward', k = log(2500))
+
+#summary(step_BIC3)
+```
