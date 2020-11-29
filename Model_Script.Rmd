@@ -22,8 +22,6 @@ library(ggplot2)
 
 ## Loading the Dataset 
 
-You can also embed plots, for example:
-
 ```{r}
 df <- read_csv("Ames_HousePrice.csv")
 
@@ -45,10 +43,10 @@ df <- df%>%
          BsmtFinSF1 = ifelse(is.na(BsmtFinSF1) == TRUE, 0, BsmtFinSF1), 
          BsmtFinSF2 = ifelse(is.na(BsmtFinSF2) == TRUE, 0, BsmtFinSF2), 
          BsmtUnfSF = ifelse(is.na(BsmtUnfSF) == TRUE, 0, BsmtUnfSF), 
-         TotalBsmtSF = ifelse(is.na(TotalBsmtSF) == TRUE, 0, TotalBsmtSF),
          Electrical = ifelse(is.na(Electrical) == TRUE, "SBrkr", Electrical),
          GarageArea = ifelse(is.na(GarageArea) == TRUE, 0, GarageArea),
          BsmtFullBath = ifelse(is.na(BsmtFullBath) == TRUE, 0, BsmtFullBath), 
+         TotalBsmtSF = ifelse(is.na(TotalBsmtSF) == TRUE, 0, TotalBsmtSF),
          BsmtHalfBath = ifelse(is.na(BsmtHalfBath) == TRUE, 0, BsmtHalfBath), 
          FireplaceQu = ifelse(is.na(FireplaceQu) == TRUE, "no_fireplace", FireplaceQu), 
          GarageType = ifelse(is.na(GarageType) == TRUE, "no_garage", GarageType), 
@@ -249,7 +247,7 @@ test <- df2[-index,]
 
 #Removing the extereme outliers 
 
-train <- train[c(-728, -579, -1338), ]
+train <- train[c(-728, -579, -1338, -1088, -1645, -559), ]
 
 
 ```
@@ -278,7 +276,10 @@ lm_modelCV <- train(SalePrice ~ BsmtQual + X1stFlrSF + X2ndFlrSF + neigh_group +
      KitchenQual  + ExterQual + GarageQual + HeatingQC + ExterCond, data=train, method = "lm", trControl = ctrl) 
 
 lm_modelCV$results
- 
+
+results <-  predict(mlr_model, test) 
+RMSE(results, test$SalePrice) 
+R2(results, test$SalePrice)
 
 
 ```
