@@ -1,0 +1,300 @@
+---
+title: "Cleaning_Script"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+##Loading Libraries 
+
+```{r}
+setwd('C:/Users/bpj25/OneDrive/Documents/R/Machine_Learning_Project/Ames_Machine_Learning_Project')
+library(readr)
+library(dplyr) 
+library(ggplot2)
+ 
+
+
+```
+
+## Loading the Dataset 
+
+You can also embed plots, for example:
+
+```{r}
+df <- read_csv("Ames_HousePrice.csv")
+
+```
+
+## Dealing with Missing Values 
+
+```{r}
+df <- df%>% 
+  mutate(Alley = ifelse(is.na(Alley) == TRUE, "no_alley", Alley), 
+         MasVnrType = ifelse(is.na(MasVnrType) == TRUE, "None", MasVnrType), 
+         BsmtQual = ifelse(is.na(BsmtQual) == TRUE, "None", BsmtQual), 
+         BsmtCond = ifelse(is.na(BsmtCond) == TRUE, "None", BsmtCond), 
+         BsmtExposure = ifelse(is.na(BsmtExposure) == TRUE, "None", BsmtExposure), 
+         BsmtFinType1 = ifelse(is.na(BsmtFinType1) == TRUE, "None", BsmtFinType1), 
+         BsmtFinType2 = ifelse(is.na(BsmtFinType2) == TRUE, "None", BsmtFinType2), 
+         LotFrontage = ifelse(is.na(LotFrontage) == TRUE, 0, LotFrontage), 
+         MasVnrArea = ifelse(is.na(MasVnrArea) == TRUE, 0, MasVnrArea), 
+         BsmtFinSF1 = ifelse(is.na(BsmtFinSF1) == TRUE, 0, BsmtFinSF1), 
+         BsmtFinSF2 = ifelse(is.na(BsmtFinSF2) == TRUE, 0, BsmtFinSF2), 
+         BsmtUnfSF = ifelse(is.na(BsmtUnfSF) == TRUE, 0, BsmtUnfSF), 
+         TotalBsmtSF = ifelse(is.na(TotalBsmtSF) == TRUE, 0, TotalBsmtSF),
+         Electrical = ifelse(is.na(Electrical) == TRUE, "SBrkr", Electrical),
+         GarageArea = ifelse(is.na(GarageArea) == TRUE, 0, GarageArea),
+         BsmtFullBath = ifelse(is.na(BsmtFullBath) == TRUE, 0, BsmtFullBath), 
+         BsmtHalfBath = ifelse(is.na(BsmtHalfBath) == TRUE, 0, BsmtHalfBath), 
+         FireplaceQu = ifelse(is.na(FireplaceQu) == TRUE, "no_fireplace", FireplaceQu), 
+         GarageType = ifelse(is.na(GarageType) == TRUE, "no_garage", GarageType), 
+         GarageFinish = ifelse(is.na(GarageFinish) == TRUE, "no_garage", GarageFinish), 
+         GarageQual = ifelse(is.na(GarageQual) == TRUE, "no_garage", GarageQual), 
+         GarageCond = ifelse(is.na(GarageCond) == TRUE, "no_garage", GarageCond), 
+         PoolQC = ifelse(is.na(PoolQC) == TRUE, "no_pool", PoolQC), 
+         Fence = ifelse(is.na(Fence) == TRUE, "no_fence", Fence), 
+         MiscFeature = ifelse(is.na(MiscFeature) == TRUE, "no_misc", MiscFeature),
+         GarageCars = ifelse(is.na(GarageCars) == TRUE, 0, GarageCars)
+         )
+
+#imputation of missing garageyrblt values as the same as respective yearbuilt
+df$GarageYrBlt <- ifelse(is.na(df$GarageYrBlt), df$YearBuilt, df$GarageYrBlt)
+
+    
+sum(is.na(df)) 
+colSums(is.na(df))
+
+```
+#Making the additional Housing Features 
+
+```{r}
+df <- df %>% 
+  mutate(was_remodeled = ifelse(YearRemodAdd - YearBuilt == 0, 0, 1), 
+         stand_scores = abs(SalePrice - mean(SalePrice))/sd(SalePrice), 
+         area_ratio = (GrLivArea / LotArea) * 10   
+         )
+
+df$was_remodeled <- factor(df$was_remodeled)
+
+``` 
+
+
+#Grouping the Neighborhoods by Median Price 
+```{r}
+groupings <- df %>% 
+  group_by(Neighborhood) %>% 
+  summarize(med_price = median(SalePrice), 
+            cnts = n()) %>% 
+  arrange(med_price) %>% 
+  mutate(cum_cnts = cumsum(cnts), 
+         neigh_group = ntile(cum_cnts, 5))
+
+
+df <- df %>% 
+ left_join(dplyr::select(groupings, Neighborhood, neigh_group), by = 'Neighborhood') 
+
+df$neigh_group <- factor(df$neigh_group)
+```
+#Converting Variables to Ordinal Factors 
+
+```{r} 
+ranks <- c("None", "Po", "Fa", "TA", "Gd", "Ex")
+df$BsmtQual <- factor(as.numeric(factor(df$BsmtQual, ranks))) 
+df$BsmtCond <- factor(as.numeric(factor(df$BsmtCond, ranks))) 
+
+ranks_ex <- c('None', 'No', 'Mn', 'Av', 'Gd')
+df$BsmtExposure <- factor(as.numeric(factor(df$BsmtExposure, ranks_ex)))
+
+ranks_exterior <- c('Po', 'Fa', 'TA', 'Gd', 'Ex')
+df$ExterQual <- factor(as.numeric(factor(df$ExterQual, ranks_exterior)))
+df$ExterCond <- factor(as.numeric(factor(df$ExterCond, ranks_exterior))) 
+
+ranks_garage <- c("no_garage", "Po", "Fa", "TA", "Gd", "Ex")
+df$GarageQual <- factor(as.numeric(factor(df$GarageQual, ranks_garage))) 
+df$GarageCond <- factor(as.numeric(factor(df$GarageCond, ranks_garage))) 
+
+ranks_pool <- c("no_pool", "Fa", "TA", "Gd", "Ex")
+df$PoolQC <- factor(as.numeric(factor(df$PoolQC, ranks_pool))) 
+
+ranks_3 <- c('Po', 'Fa', 'TA', 'Gd', 'Ex')
+df$HeatingQC <- factor(as.numeric(factor(df$HeatingQC, ranks_3)))
+df$KitchenQual <- factor(as.numeric(factor(df$KitchenQual, ranks_3))) 
+
+ranks_fireplace <- c("no_fireplace", "Po", "Fa", "TA", "Gd", "Ex")
+df$FireplaceQu <- factor(as.numeric(factor(df$FireplaceQu, ranks_fireplace)))
+
+
+ranks_fence <- c("no_fence", "MnWw", "GdWo", "MnPrv", "GdPrv")
+df$Fence <- factor(as.numeric(factor(df$Fence, ranks_fence))) 
+
+ranks_garagefinish <- c("no_garage", "Unf", "RFn", "Fin")
+df$GarageFinish <- factor(as.numeric(factor(df$GarageFinish, ranks_garagefinish)))
+
+
+ranks_bsmttype <- c('None', 'Unf', 'LwQ', 'Rec', 'BLQ', 'ALQ', 'GLQ')
+df$BsmtFinType1 <- factor(as.numeric(factor(df$BsmtFinType1, ranks_bsmttype))) 
+df$BsmtFinType2 <- factor(as.numeric(factor(df$BsmtFinType2, ranks_bsmttype))) 
+
+ranks_garagetype <- c('no_garage', 'Attchd', '2Types', 'BuiltIn', 'Detchd', 'CarPort', 'Basment')
+df$GarageType  <- factor(df$GarageType, ranks_garagetype) 
+
+ranks_housetype <- c('1Story', '1.5Fin', '1.5Unf', '2Story', '2.5Fin', '2.5Unf','SFoyer','SLvl')
+
+df$HouseStyle <- factor(df$HouseStyle, ranks_housetype)
+
+sum(is.na(df))
+colSums(is.na(df))
+
+```
+
+#Making the Dummy Variables 
+
+```{r} 
+
+df$MSZoning <- factor(df$MSZoning)
+df$Street <- factor(df$Street)
+df$Alley <- factor(df$Alley) 
+df$LotShape <- factor(df$LotShape) 
+df$LandContour <- factor(df$LandContour) 
+df$Utilities <- factor(df$Utilities) 
+df$LotConfig <- factor(df$LotConfig) 
+df$LandSlope <- factor(df$LandSlope) 
+df$Condition1 <- factor(df$Condition1) 
+df$Condition2 <- factor(df$Condition2) 
+df$BldgType <- factor(df$BldgType) 
+df$RoofStyle <- factor(df$RoofStyle) 
+df$RoofMatl <- factor(df$RoofMatl) 
+df$Exterior1st <- factor(df$Exterior1st) 
+df$Exterior2nd <- factor(df$Exterior2nd) 
+df$MasVnrType <- factor(df$MasVnrType) 
+df$Foundation <- factor(df$Foundation) 
+ 
+df$Neighborhood <- factor(df$Neighborhood) 
+df$Heating <- factor(df$Heating)
+df$Electrical <- factor(df$Electrical) 
+ 
+df$PavedDrive <- factor(df$PavedDrive) 
+df$MiscFeature <- factor(df$MiscFeature) 
+df$SaleType <- factor(df$SaleType) 
+df$SaleCondition <- factor(df$SaleCondition) 
+df$CentralAir <- factor(df$CentralAir) 
+
+
+
+```
+
+#removing outliers  
+```{r} 
+df1 <- df %>% 
+  filter(stand_scores < 3 & LotArea < 25000) 
+
+
+names(df1)[names(df1) == "1stFlrSF"] <- "X1stFlrSF"
+names(df1)[names(df1) == "2ndFlrSF"] <- "X2ndFlrSF"
+names(df1)[names(df1) == "3SsnPorch"] <- "X3SsnPorch"
+
+#dropping the columns not of interest
+df2 <- df1 %>% 
+  dplyr::select(-PID, -X1, -GrLivArea, - stand_scores, -SaleType, -SaleCondition, -MoSold, -YrSold, 
+                -GarageCars, -GarageYrBlt, -YearBuilt, -YearRemodAdd,  
+                - OverallCond, -OverallQual, -Condition1, -Condition2, -LotFrontage, -LotArea )
+
+
+
+```
+#scaling the area and square footage 
+```{r} 
+#reconsider using the log function but rather use the normalization as a means of transforming the s-footage features 
+#Read up on doing log transformations with zero 
+#df3 <- df2 %>% 
+ # mutate(LotFrontage = ifelse(LotFrontage != 0, log(LotFrontage), LotFrontage), 
+  #       MasVnrArea = ifelse(MasVnrArea != 0, log(MasVnrArea), MasVnrArea), 
+   #      BsmtFinSF1 = ifelse(BsmtFinSF1 != 0, log(BsmtFinSF1), BsmtFinSF1), 
+    #     BsmtFinSF2 = ifelse(BsmtFinSF2 != 0, log(BsmtFinSF2), BsmtFinSF2), 
+     #    BsmtUnfSF = ifelse(BsmtUnfSF != 0, log(BsmtUnfSF), BsmtUnfSF))
+
+
+#convert to logs before putting in formula 
+df2$SalePrice <- log(df2$SalePrice) 
+df2$MasVnrArea <- log(df2$MasVnrArea + 1) 
+df2$BsmtFinSF1 <- log(df2$BsmtFinSF1 + 1)
+df2$BsmtFinSF2 <- log(df2$BsmtFinSF2 +1) 
+df2$BsmtUnfSF <- log(df2$BsmtUnfSF + 1)
+df2$X2ndFlrSF <- log(df2$X2ndFlrSF +1) 
+df2$GarageArea <- log(df2$GarageArea + 1) 
+df2$WoodDeckSF <- log(df2$WoodDeckSF +1) 
+df2$OpenPorchSF <- log(df2$OpenPorchSF +1) 
+df2$EnclosedPorch <- log(df2$EnclosedPorch + 1)  
+df2$X3SsnPorch <- log(df2$X3SsnPorch +1) 
+df2$ScreenPorch <- log(df2$ScreenPorch + 1) 
+df2$PoolArea <- log(df2$PoolArea + 1) 
+df2$LowQualFinSF <- log(df2$LowQualFinSF + 1)
+df2$X1stFlrSF <- log(df2$X1stFlrSF) 
+df2$TotalBsmtSF <- log(df2$TotalBsmtSF + 1)
+
+
+```
+#Splitting the data 80 by 20 
+
+```{r} 
+set.seed(42)
+
+index <- sample(1:nrow(df2), size =  nrow(df2) * 0.8)
+train <- df2[index,]
+test <- df2[-index,] 
+
+#Removing the extereme outliers 
+
+train <- train[c(-728, -579, -1338), ]
+
+
+```
+
+#Making the models 
+```{r}
+
+model_null <- lm(SalePrice ~ BldgType, data = train)
+
+test_model <- lm(SalePrice ~ BldgType + HouseStyle  + 
+                   MasVnrType + MasVnrArea + ExterQual + ExterCond + 
+                   BsmtQual + BsmtCond + BsmtFinType1 + 
+                   BsmtFinSF1 + BsmtUnfSF  + 
+                   X1stFlrSF + X2ndFlrSF + 
+                   BsmtFullBath + BsmtHalfBath + FullBath + HalfBath + 
+                   BedroomAbvGr + KitchenQual  + 
+                   GarageType + GarageFinish + GarageArea + 
+                   GarageQual + GarageCond + WoodDeckSF + OpenPorchSF + 
+                   EnclosedPorch + X3SsnPorch + ScreenPorch + PoolArea + PoolQC + 
+                   Fence + MiscFeature + MiscVal + was_remodeled + area_ratio + neigh_group, data = train)
+
+
+step_testing9 <- step(model_null, scope = list(lower = model_null, upper = test_model), direction = 'both', k = log(2500)) 
+summary(step_testing9) 
+#get rid of the crazy points at this portion of the code
+
+```
+
+
+
+
+#cross-validation step 
+```{r} 
+library(caret)
+
+
+ctrl <- trainControl(method = "cv", number = 10)
+
+lm_modelCV <- train(SalePrice ~ BsmtQual + X1stFlrSF + HouseStyle + 
+                       ExterQual + GarageCond + BsmtFinType1 + X2ndFlrSF + KitchenQual + 
+                       area_ratio + GarageFinish + GarageArea + BsmtFinSF1 + 
+                       ExterCond + WoodDeckSF + FullBath + HalfBath + neigh_group + Fireplaces + HeatingQC +  was_remodeled +  MasVnrArea + BsmtUnfSF , data=train, method = "lm", trControl = ctrl) 
+
+lm_modelCV$results
+ 
+
+
+```
