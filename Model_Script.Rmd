@@ -281,5 +281,81 @@ results <-  predict(mlr_model, test)
 RMSE(results, test$SalePrice) 
 R2(results, test$SalePrice)
 
+#Illustrating change in coefficients for ordinal variables
 
+```{r} 
+mdl_coef <- data.frame(summary(mlr_model)$coefficients)
+mdl_coef <- cbind(Feature = rownames(mdl_coef), mdl_coef)
+rownames(mdl_coef) <- 1:nrow(mdl_coef)
+mdl_coef 
+
+mdl_coef = subset(mdl_coef, select = c('Feature', 'Estimate'))
+mdl_coef
+
+
+
+
+#Basement Quality(height)
+basqgraph = ggplot(mdl_coef[c(2:6),], aes(y=Estimate, x=Feature)) + 
+  geom_bar(stat = "identity") + ggtitle("Basement Quality Coefficients") + theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(-0.23,0.5) + xlab("Height in Inches") + ylab("Coefficient") + 
+  scale_x_discrete(labels = c("<70in", "70-79in", "80-89in", "90-99in", '100+in'))
+
+#Kitchen Quality
+kitchqgraph = ggplot(mdl_coef[c(13:16),], aes(y=Estimate, x=Feature)) + 
+  geom_bar(stat = "identity") + ggtitle("Kitchen Quality Coefficients") + theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(0,0.5) + xlab("Ranking") + ylab("Coefficient") +
+  scale_x_discrete(labels = c("Fair", "Typical/Average", "Good", "Excellent"))
+
+#External Quality
+exqgraph = ggplot(mdl_coef[c(17:19),], aes(y=Estimate, x=Feature)) + 
+  geom_bar(stat = "identity") + ggtitle("External Quality Coefficients") + theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(0,0.5) + xlab("Ranking") + ylab("Coefficient") +
+  scale_x_discrete(labels = c("Typical/Average", "Good", 'Excellent'))
+
+#Garage Quality
+garqgraph = ggplot(mdl_coef[c(20:24),], aes(y=Estimate, x=Feature)) + 
+  geom_bar(stat = "identity") + ggtitle("Garage Quality Coefficients") + theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(-0.23,0.5) + xlab("Ranking") + ylab("Coefficient") +
+  scale_x_discrete(labels = c("Poor", "Fair", "Typical/Average", "Good", "Excellent"))
+
+#Heating Quality
+heatqgraph = ggplot(mdl_coef[c(25:28),], aes(y=Estimate, x=Feature)) + 
+  geom_bar(stat = "identity") + ggtitle("Heating Quality Coefficients") + theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(0,0.5) + xlab("Ranking") + ylab("Coefficient") +
+  scale_x_discrete(labels = c("Fair", "Typical/Average", "Good", "Excellent"))
+
+#External Condition
+excongraph = ggplot(mdl_coef[c(29:32),], aes(y=Estimate, x=Feature)) + 
+  geom_bar(stat = "identity") + ggtitle("External Condition Coefficients") + theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + ylim(0,0.5) + xlab("Ranking") + ylab("Coefficient") +
+  scale_x_discrete(labels = c("Fair", "Typical/Average", "Good", "Excellent"))
+
+#Putting it all together
+coeffmax <- data.frame (Feature  = c("Basement Quality", "Kitchen Quality", "External Quality", 
+                                      "External Condition", "Garage Quality", "Heating Quality"),
+                  max_quality = c(0.34922761, 0.44156725, 0.30883618, 0.47107102, 0.17254215, 0.17254215)
+                  )
+coeffmax <- coeffmax[order(-coeffmax$max_quality,coeffmax$Feature),]
+rownames(coeffmax) <- 1:nrow(coeffmax)
+coeffmax
+
+coeffmaxgraph = ggplot(coeffmax, aes(y= reorder(Feature, max_quality), x=max_quality)) + 
+  geom_bar(stat = "identity") + ggtitle("'Excellent' Coefficients Across All Categorical Features") + theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) + xlim(0,0.5) + xlab("'Excellent' Coefficient Value") + ylab(NULL)
+```
+
+
+```{r}
+print(basqgraph)
+print(kitchqgraph)
+print(exqgraph)
+print(garqgraph)
+print(heatqgraph)
+print(excongraph)
+print(coeffmaxgraph)
+
+
+
+```
 ```
